@@ -59,6 +59,10 @@ mc ls myazure
 
 If you do not want to share the credentials of the Azure blob storage with your users/applications, you can set the original credentials in the shell environment using `AZURE_STORAGE_ACCOUNT` and `AZURE_STORAGE_KEY` variables and assign different access/secret keys to `MINIO_ROOT_USER` and `MINIO_ROOT_PASSWORD`.
 
+### Default credentials
+
+If you want to log in using AAD pod identity, set `AZURE_DEFAULT_CREDENTIALS=1` and leave `MINIO_ROOT_PASSWORD` set to some dummy value.
+
 ### Known limitations
 
 Gateway inherits the following Azure limitations:

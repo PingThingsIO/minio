@@ -170,7 +170,7 @@ func (g *Azure) NewGatewayLayer(creds madmin.Credentials) (minio.ObjectLayer, er
 	}
 
 	var credential azblob.Credential
-	if creds.SecretKey == "" {
+	if v, err := strconv.Atoi(env.Get("AZURE_DEFAULT_CREDENTIALS", "0")); err == nil && v > 0 {
 		if cred, err := azidentity.NewDefaultAzureCredential(nil); err != nil {
 			return nil, err
 		} else {
