@@ -37,6 +37,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-pipeline-go/pipeline"
+	azpolicy "github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/dustin/go-humanize"
 	"github.com/minio/cli"
@@ -167,12 +169,36 @@ func (g *Azure) NewGatewayLayer(creds madmin.Credentials) (minio.ObjectLayer, er
 		return nil, err
 	}
 
-	credential, err := azblob.NewSharedKeyCredential(creds.AccessKey, creds.SecretKey)
-	if err != nil {
-		if _, ok := err.(base64.CorruptInputError); ok {
-			return &azureObjects{}, errors.New("invalid Azure credentials")
+	var credential azblob.Credential
+	if creds.SecretKey == "" {
+		if cred, err := azidentity.NewDefaultAzureCredential(nil); err != nil {
+			return nil, err
+		} else {
+			credential = azblob.NewTokenCredential(
+				"",
+				func(c azblob.TokenCredential) time.Duration {
+					opts := azpolicy.TokenRequestOptions{
+						Scopes: []string{fmt.Sprintf("https://%s.blob.core.windows.net/", creds.AccessKey)},
+					}
+					ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+					if t, err := cred.GetToken(ctx, opts); err != nil {
+						logger.Fatal(err, "managed identity login failed")
+						return 0
+					} else {
+						c.SetToken(t.Token)
+						return t.ExpiresOn.Sub(time.Now())
+					}
+				},
+			)
 		}
-		return &azureObjects{}, err
+	} else {
+		credential, err = azblob.NewSharedKeyCredential(creds.AccessKey, creds.SecretKey)
+		if err != nil {
+			if _, ok := err.(base64.CorruptInputError); ok {
+				return &azureObjects{}, errors.New("invalid Azure credentials")
+			}
+			return &azureObjects{}, err
+		}
 	}
 
 	metrics := minio.NewMetrics()
